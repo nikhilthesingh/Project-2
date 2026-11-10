@@ -88,7 +88,6 @@ def index():
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    # VULNERABILITY: No input validation at all
     if request.is_json:
         user_message = request.json.get('message', '')
     else:
@@ -97,14 +96,26 @@ def chat():
     if not user_message:
         return jsonify({"error": "No message provided"}), 400
 
+    # ── DEFENCE LAYER: Input Validation ──────────────────────────────
+    from validate import validate_input, scan_output
+    is_safe, reason = validate_input(user_message)
+    if not is_safe:
+        return jsonify({"error": f"Request blocked: {reason}"}), 400
+    # ─────────────────────────────────────────────────────────────────
+
     reply = ask_ollama(user_message)
-    # VULNERABILITY: Raw model response returned with no output scanning
+
+    # ── DEFENCE LAYER: Output Scanning ───────────────────────────────
+    output_safe, output_reason = scan_output(reply)
+    if not output_safe:
+        return jsonify({"error": output_reason}), 400
+    # ─────────────────────────────────────────────────────────────────
+
     return jsonify({"response": reply})
 
 
 @app.route('/ask', methods=['POST'])
 def ask():
-    # VULNERABILITY: Completely unvalidated endpoint (used in Project 2)
     if request.is_json:
         user_input = request.json.get('message', '')
     else:
@@ -113,7 +124,21 @@ def ask():
     if not user_input:
         return jsonify({"error": "No message provided"}), 400
 
+    # ── DEFENCE LAYER: Input Validation ──────────────────────────────
+    from validate import validate_input, scan_output
+    is_safe, reason = validate_input(user_input)
+    if not is_safe:
+        return jsonify({"error": f"Request blocked: {reason}"}), 400
+    # ─────────────────────────────────────────────────────────────────
+
     reply = ask_ollama(user_input)
+
+    # ── DEFENCE LAYER: Output Scanning ───────────────────────────────
+    output_safe, output_reason = scan_output(reply)
+    if not output_safe:
+        return jsonify({"error": output_reason}), 400
+    # ─────────────────────────────────────────────────────────────────
+
     return jsonify({"response": reply})
 
 
