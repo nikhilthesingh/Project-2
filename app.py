@@ -13,7 +13,7 @@ SYSTEM_PROMPT = (
 )
 
 OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL_NAME = "tinyllama"
+MODEL_NAME = "llama3"
 
 
 def ask_ollama(user_message):
@@ -79,13 +79,16 @@ def index():
             const data = await res.json();
             document.getElementById("responseBox").innerText =
                 data.response || data.error || "No response";
-        }        </script>
+        }
+        </script>
     </body>
     </html>
     '''
 
+
 @app.route('/chat', methods=['POST'])
 def chat():
+    # VULNERABILITY: No input validation at all
     if request.is_json:
         user_message = request.json.get('message', '')
     else:
@@ -94,51 +97,26 @@ def chat():
     if not user_message:
         return jsonify({"error": "No message provided"}), 400
 
-    # ── DEFENCE LAYER: Input Validation ──────────────────────────────
-    from validate import validate_input, scan_output
-    is_safe, reason = validate_input(user_message)
-    if not is_safe:
-        return jsonify({"error": f"Request blocked: {reason}"}), 400
-    # ─────────────────────────────────────────────────────────────────
-
     reply = ask_ollama(user_message)
-
-    # ── DEFENCE LAYER: Output Scanning ───────────────────────────────
-    output_safe, output_reason = scan_output(reply)
-    if not output_safe:
-        return jsonify({"error": output_reason}), 400
-    # ─────────────────────────────────────────────────────────────────
-
+    # VULNERABILITY: Raw model response returned with no output scanning
     return jsonify({"response": reply})
 
 
 @app.route('/ask', methods=['POST'])
 def ask():
+    # VULNERABILITY: Completely unvalidated endpoint (used in Project 2)
     if request.is_json:
-        user_input = request.json.get('message', '')    
+        user_input = request.json.get('message', '')
     else:
         user_input = request.form.get('message', '')
 
     if not user_input:
         return jsonify({"error": "No message provided"}), 400
 
-    # ── DEFENCE LAYER: Input Validation ──────────────────────────────
-    from validate import validate_input, scan_output
-    is_safe, reason = validate_input(user_input)
-    if not is_safe:
-        return jsonify({"error": f"Request blocked: {reason}"}), 400
-    # ─────────────────────────────────────────────────────────────────
-
     reply = ask_ollama(user_input)
-
-    # ── DEFENCE LAYER: Output Scanning ───────────────────────────────
-    output_safe, output_reason = scan_output(reply)
-    if not output_safe:
-        return jsonify({"error": output_reason}), 400
-    # ─────────────────────────────────────────────────────────────────
-
-    return jsonify({"response": reply}) 
+    return jsonify({"response": reply})
 
 
 if __name__ == '__main__':
-    app.run(debug=False, host='127.0.0.1', port=5000)
+    # VULNERABILITY: Debug mode on in production
+    app.run(debug=True, host='0.0.0.0', port=5000)
